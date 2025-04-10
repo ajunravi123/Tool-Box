@@ -1,0 +1,5 @@
+googlesearch-python
+fastapi
+uvicorn
+pydantic
+python-dotenv

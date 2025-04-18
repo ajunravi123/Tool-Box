@@ -57,10 +57,21 @@ def clean_sql_query(query: str) -> str:
     cleaned_query = re.sub(r'\s+', ' ', cleaned_query)
     return cleaned_query.strip()
 
-async def get_postgres_schema(db_config: Dict[str, str]) -> str:
+def filter_postgres_config(db_config: Dict[str, str]) -> Dict[str, str]:
+    """Filter db_config to include only PostgreSQL-relevant keys"""
+    postgres_keys = ["host", "database", "user", "password", "port"]
+    return {key: value for key, value in db_config.items() if key in postgres_keys and value is not None}
+
+def filter_bigquery_config(db_config: Dict[str, str]) -> Dict[str, str]:
+    """Filter db_config to include only BigQuery-relevant keys"""
+    bigquery_keys = ["project_id", "database", "credentials_path", "credentials_json"]
+    return {key: value for key, value in db_config.items() if key in bigquery_keys and value is not None}
+
+async def get_postomey_schema(db_config: Dict[str, str]) -> str:
     """Fetch PostgreSQL database schema for context"""
     try:
-        conn = await asyncpg.connect(**db_config)
+        filtered_config = filter_postgres_config(db_config)
+        conn = await asyncpg.connect(**filtered_config)
         schema_query = """
         SELECT table_name, column_name, data_type
         FROM information_schema.columns
@@ -85,10 +96,11 @@ async def get_postgres_schema(db_config: Dict[str, str]) -> str:
 def get_bigquery_schema(db_config: Dict[str, str]) -> str:
     """Fetch BigQuery dataset schema for context"""
     try:
-        project_id = db_config.get("project_id")
-        dataset_id = db_config.get("database")
-        credentials_path = db_config.get("credentials_path")
-        credentials_json = db_config.get("credentials_json")
+        filtered_config = filter_bigquery_config(db_config)
+        project_id = filtered_config.get("project_id")
+        dataset_id = filtered_config.get("database")
+        credentials_path = filtered_config.get("credentials_path")
+        credentials_json = filtered_config.get("credentials_json")
         
         if not project_id or not dataset_id:
             raise HTTPException(status_code=400, detail="project_id and database (dataset_id) are required for BigQuery")
@@ -177,7 +189,8 @@ async def generate_sql_query(natural_query: str, schema_context: str, db_type: s
 async def validate_postgres_query(query: str, db_config: Dict[str, str]) -> Tuple[bool, Optional[str]]:
     """Validate PostgreSQL query"""
     try:
-        conn = await asyncpg.connect(**db_config)
+        filtered_config = filter_postgres_config(db_config)
+        conn = await asyncpg.connect(**filtered_config)
         await conn.fetch(f"EXPLAIN {query}")
         await conn.close()
         return True, None
@@ -191,9 +204,10 @@ async def validate_postgres_query(query: str, db_config: Dict[str, str]) -> Tupl
 def validate_bigquery_query(query: str, db_config: Dict[str, str]) -> Tuple[bool, Optional[str]]:
     """Validate BigQuery query using dry run"""
     try:
-        project_id = db_config.get("project_id")
-        credentials_path = db_config.get("credentials_path")
-        credentials_json = db_config.get("credentials_json")
+        filtered_config = filter_bigquery_config(db_config)
+        project_id = filtered_config.get("project_id")
+        credentials_path = filtered_config.get("credentials_path")
+        credentials_json = filtered_config.get("credentials_json")
         
         if not project_id:
             raise HTTPException(status_code=400, detail="project_id is required for BigQuery")
@@ -229,7 +243,8 @@ async def validate_query(query: str, db_config: Dict[str, str]) -> Tuple[bool, O
 async def fetch_postgres_data(query: str, db_config: Dict[str, str]) -> list:
     """Execute PostgreSQL query and return results"""
     try:
-        conn = await asyncpg.connect(**db_config)
+        filtered_config = filter_postgres_config(db_config)
+        conn = await asyncpg.connect(**filtered_config)
         rows = await conn.fetch(query)
         await conn.close()
         return [dict(row) for row in rows]
@@ -243,9 +258,10 @@ async def fetch_postgres_data(query: str, db_config: Dict[str, str]) -> list:
 def fetch_bigquery_data(query: str, db_config: Dict[str, str]) -> list:
     """Execute BigQuery query and return results"""
     try:
-        project_id = db_config.get("project_id")
-        credentials_path = db_config.get("credentials_path")
-        credentials_json = db_config.get("credentials_json")
+        filtered_config = filter_bigquery_config(db_config)
+        project_id = filtered_config.get("project_id")
+        credentials_path = filtered_config.get("credentials_path")
+        credentials_json = filtered_config.get("credentials_json")
         
         if not project_id:
             raise HTTPException(status_code=400, detail="project_id is required for BigQuery")

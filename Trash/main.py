@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 import urllib.parse
 import random
 import httpx
-from query_generator import generate_query, QueryInput  # Import the query generator
 
 app = FastAPI()
 
@@ -16,7 +15,7 @@ app = FastAPI()
 class TimeRequest(BaseModel):
     hour: Optional[int] = None
 
-class ScrapeRequest(BaseModel):
+class ScrapeRequest(BaseModel):  # Unused but included for compatibility
     url: str
 
 class ItemRequest(BaseModel):
@@ -168,12 +167,15 @@ async def scrape_walmart(request: ItemRequest):
 
     results = []
     for product in products:
+        # Title
         title = product.find("span", {"data-automation-id": "product-title"})
         product_name = title.get_text(strip=True) if title else "Not found"
 
+        # Price
         product_price = "Not found"
         price_div = product.find("div", {"data-automation-id": "product-price"})
         if price_div:
+            # Look for spans containing $ and digits
             dollar_span = price_div.find("span", string=lambda s: s and "$" in s)
             major_span = price_div.find("span", string=lambda s: s and s.strip().isdigit())
             minor_span = major_span.find_next_sibling("span") if major_span else None
@@ -182,6 +184,7 @@ async def scrape_walmart(request: ItemRequest):
                 cents = minor_span.get_text(strip=True) if minor_span else "00"
                 product_price = f"{dollar_span.get_text(strip=True)}{major_span.get_text(strip=True)}.{cents}"
 
+        # URL
         link = product.find("a", {"link-identifier": True})
         if link and "href" in link.attrs:
             href = link["href"]
@@ -200,6 +203,7 @@ async def scrape_walmart(request: ItemRequest):
         })
 
     return {"results": results}
+
 
 # Target scraper using ScraperAPI
 @app.post("/scrape_target", summary="Scrape Target search results by item name")
@@ -220,7 +224,7 @@ async def scrape_target(request: ItemRequest):
         return {"results": [], "message": "No products found on Target."}
 
     results = []
-    for i, card in enumerate(product_cards[:10]):
+    for i, card in enumerate(product_cards[:10]):  # Limit to top 10 for speed
         title = card.get_text(strip=True)
         link = card["href"] if card.has_attr("href") else ""
         full_url = "https://www.target.com" + link if link else search_url
@@ -234,12 +238,7 @@ async def scrape_target(request: ItemRequest):
 
     return {"results": results}
 
-# Query generator endpoint
-@app.post("/generate_query", summary="Generate SQL query from natural language")
-async def generate_sql_query(request: QueryInput):
-    return await generate_query(request)
-
 # For local dev/testing
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=8003)

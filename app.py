@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 import urllib.parse
 import random
 import httpx
-from query_generator import generate_query, QueryInput  # Import the query generator
+from query_generator import generate_query, fetch_data, QueryInput  # Import new functions
 
 app = FastAPI()
 
@@ -234,10 +234,14 @@ async def scrape_target(request: ItemRequest):
 
     return {"results": results}
 
-# Query generator endpoint
+# Query generator endpoints
 @app.post("/generate_query", summary="Generate SQL query from natural language")
 async def generate_sql_query(request: QueryInput):
     return await generate_query(request)
+
+@app.post("/fetch_data", summary="Generate SQL query and fetch data from database")
+async def fetch_db_data(request: QueryInput):
+    return await fetch_data(request)
 
 # For local dev/testing
 if __name__ == "__main__":

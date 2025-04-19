@@ -67,7 +67,7 @@ def filter_bigquery_config(db_config: Dict[str, str]) -> Dict[str, str]:
     bigquery_keys = ["project_id", "database", "credentials_path", "credentials_json"]
     return {key: value for key, value in db_config.items() if key in bigquery_keys and value is not None}
 
-async def get_postomey_schema(db_config: Dict[str, str]) -> str:
+async def get_postgres_schema(db_config: Dict[str, str]) -> str:
     """Fetch PostgreSQL database schema for context"""
     try:
         filtered_config = filter_postgres_config(db_config)
@@ -92,7 +92,7 @@ async def get_postomey_schema(db_config: Dict[str, str]) -> str:
     except Exception as e:
         logger.error(f"Failed to fetch PostgreSQL schema: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch PostgreSQL schema: {str(e)}")
-
+    
 def get_bigquery_schema(db_config: Dict[str, str]) -> str:
     """Fetch BigQuery dataset schema for context"""
     try:
